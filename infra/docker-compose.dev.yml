@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: genmds_api_dev
+    env_file:
+      - .env.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../api:/app:cached
+      - ../storage:/storage
+      - ../logs/api:/var/log/api
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - broker
+
+  worker:
+    build:
+      context: ../worker
+    container_name: genmds_worker_dev
+    env_file:
+      - .env.dev
+    volumes:
+      - ../worker:/app:cached
+      - ../storage:/storage
+      - ../logs/worker:/var/log/worker
+    command: celery -A tasks worker --loglevel=INFO
+    depends_on:
+      - broker
+
+  web:
+    build:
+      context: ../web
+    container_name: genmds_web_dev
+    env_file:
+      - .env.dev
+    ports:
+      - "5173:5173"   # vite dev server
+    volumes:
+      - ../web:/app:cached
+      - ../logs/web:/var/log/web
+    command: sh -c "npm ci && npm run dev -- --host"
+
+  
+  broker:
+    image: redis:7-alpine
+    container_name: genmds_redis_dev
+    ports:
+      - "6379:6379"
